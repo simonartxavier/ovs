@@ -1239,12 +1239,15 @@ ovsdb_idl_row_get_seqno(const struct ovsdb_idl_row *row,
  * the first call to ovsdb_idl_run(). The column to be tracked
  * should have OVSDB_IDL_ALERT turned on.
  */
+//TODO: update comment
 void
 ovsdb_idl_track_add_column(struct ovsdb_idl *idl,
                            const struct ovsdb_idl_column *column)
 {
-    if (!(*ovsdb_idl_get_mode(idl, column) & OVSDB_IDL_ALERT)) {
-        ovsdb_idl_add_column(idl, column);
+    if (!(*ovsdb_idl_get_mode(idl, column) & OVSDB_IDL_MONITOR)) {
+        *ovsdb_idl_get_mode(idl, column) |= OVSDB_IDL_MONITOR;
+        add_ref_table(idl, &column->type.key);
+        add_ref_table(idl, &column->type.value);
     }
     *ovsdb_idl_get_mode(idl, column) |= OVSDB_IDL_TRACK;
 }
@@ -1694,11 +1697,13 @@ ovsdb_idl_row_change(struct ovsdb_idl_row *row, const struct shash *values,
             continue;
         }
 
-        if (datum_changed && table->modes[column_idx] & OVSDB_IDL_ALERT) {
-            changed = true;
-            row->change_seqno[change]
-                = row->table->change_seqno[change]
-                = row->table->idl->change_seqno + 1;
+        if (datum_changed) {
+            if (table->modes[column_idx] & OVSDB_IDL_ALERT) {
+                changed = true;
+                row->change_seqno[change]
+                    = row->table->change_seqno[change]
+                    = row->table->idl->change_seqno + 1;
+            }
 
             if (table->modes[column_idx] & OVSDB_IDL_TRACK) {
                 if (ovs_list_is_empty(&row->track_node) &&
@@ -3501,7 +3506,7 @@ ovsdb_idl_txn_write__(const struct ovsdb_idl_row *row_,
 
     class = row->table->class_;
     column_idx = column - class->columns;
-    write_only = row->table->modes[column_idx] == OVSDB_IDL_MONITOR;
+    write_only = !(row->table->modes[column_idx] & OVSDB_IDL_ALERT);
 
     ovs_assert(row->new_datum != NULL);
     ovs_assert(column_idx < class->n_columns);
