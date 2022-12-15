@@ -1018,6 +1018,7 @@ ssl_init(void)
     return init_status;
 }
 
+/* XS */
 static SSL_CTX *
 new_ssl_ctx(void)
 {
